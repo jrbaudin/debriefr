@@ -15,5 +15,19 @@
     "github",
     "reports",
     "slack"
-  ]
+  ],
+  "devDependencies": {
+    "@types/jest": "^22.2.3",
+    "@types/lodash": "^4.14.108",
+    "@types/node": "^10.0.2",
+    "jest": "^22.4.3",
+    "ts-jest": "^22.4.4",
+    "ts-node": "^6.0.2",
+    "typescript": "^2.8.3"
+  },
+  "dependencies": {
+    "graphql-request": "^1.5.2",
+    "lodash": "^4.17.10",
+    "slack": "^11.0.0"
+  }
 }

@@ -1,6 +1,5 @@
 import * as slack from 'slack'
 import * as _ from 'lodash'
-import { logger } from './logger'
 
 const dev = process.env.NODE_ENV !== 'production'
 const logPrefix = 'slack ||'
@@ -25,17 +24,17 @@ export const send = (message: ISlackMessage): Promise<any> => {
   return slack.chat
     .postMessage(readyMessage)
     .then(res => {
-      logger.info(`${logPrefix} Message successfully sent!`)
+      console.info(`${logPrefix} Message successfully sent!`)
       delete readyMessage.token
-      logger.debug(
+      console.debug(
         `${logPrefix} The following message was sent to ${readyMessage.channel}: %o`,
         readyMessage
       )
       return res
     })
     .catch(err => {
-      logger.error(`${logPrefix} Error caught while running postMessage()`)
-      logger.error(err)
+      console.error(`${logPrefix} Error caught while running postMessage()`)
+      console.error(err)
       return err
     })
 }
