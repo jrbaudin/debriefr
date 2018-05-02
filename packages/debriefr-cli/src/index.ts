@@ -109,96 +109,59 @@ program
           }
         }`
 
-      // const data = await github.query(getUserStats, { login: username })
-
-      const data = {
-        user: {
-          openIssues: [
-            {
-              "title": "Support a subscription of Sale events",
-              "author": {
-                "login": "jrbaudin"
-              },
-              "repository": {
-                "name": "Karma-Merchant-Web",
-                "owner": {
-                  "login": "karmadev"
-                }
-              },
-              "createdAt": "2018-04-27T14:42:25Z",
-              "closed": false,
-              "closedAt": null
-            },
-            {
-              "title": "Support a subscription of Item events",
-              "author": {
-                "login": "jrbaudin"
-              },
-              "repository": {
-                "name": "Karma-Merchant-Web",
-                "owner": {
-                  "login": "karmadev2"
-                }
-              },
-              "createdAt": "2018-04-27T14:42:46Z",
-              "closed": false,
-              "closedAt": null
-            },
-            {
-              "title": "MW 2.0 version 2 - Release Checklist",
-              "author": {
-                "login": "jrbaudin"
-              },
-              "repository": {
-                "name": "Karma-Merchant-Web",
-                "owner": {
-                  "login": "karmadev2"
-                }
-              },
-              "createdAt": "2018-04-30T12:15:21Z",
-              "closed": false,
-              "closedAt": null
-            },
-            {
-              "title": "MW 2.0 version 2 - Release Checklist (backend)",
-              "author": {
-                "login": "jrbaudin"
-              },
-              "repository": {
-                "name": "Karma-Merchant-Web",
-                "owner": {
-                  "login": "karmadev"
-                }
-              },
-              "createdAt": "2018-04-30T12:16:15Z",
-              "closed": false,
-              "closedAt": null
-            }
-          ]
-        }
-      }
+      const data = await github.query(getUserStats, { login: username })
 
       if (data && data.user) {
-        // const { name, closedPrs, openPrs, closedIssues, openIssues } = data.user
-        const { openIssues } = data.user
-        const filteredOpenIssues = _.filter(openIssues, function(issue) {
+        const { name, closedPrs, openPrs, closedIssues, openIssues } = data.user
+
+        const filteredOpenIssues = _.filter(openIssues.nodes, function(issue) {
           let isWithinOrg = true
           if (organization) {
             const owner = issue && issue.repository && issue.repository.owner ? issue.repository.owner.login : ''
             isWithinOrg = _.isEqual(owner, organization)
           }
-
           const validDate = isWithinInterval(issue.createdAt, interval)
 
           return isWithinOrg && validDate
         })
 
-        // console.log('getUserStats name', name)
-        // console.log('getUserStats closedIssues', JSON.stringify(closedIssues, null, 2))
-        console.log('getUserStats openIssues', JSON.stringify(openIssues, null, 2))
-        console.log('getUserStats filteredOpenIssues', JSON.stringify(filteredOpenIssues, null, 2))
-        // console.log('getUserStats closedPullRequests', JSON.stringify(closedPullRequests, null, 2))
-        /* console.log('getUserStats openPrs', JSON.stringify(openPrs, null, 2)) */
+        const filteredClosedIssues = _.filter(closedIssues.nodes, function(issue) {
+          let isWithinOrg = true
+          if (organization) {
+            const owner = issue && issue.repository && issue.repository.owner ? issue.repository.owner.login : ''
+            isWithinOrg = _.isEqual(owner, organization)
+          }
+          const validDate = isWithinInterval(issue.createdAt, interval)
+
+          return isWithinOrg && validDate
+        })
+
+        const filteredOpenPrs = _.filter(openPrs.nodes, function(pr) {
+          let isWithinOrg = true
+          if (organization) {
+            const owner = pr && pr.repository && pr.repository.owner ? pr.repository.owner.login : ''
+            isWithinOrg = _.isEqual(owner, organization)
+          }
+          const validDate = isWithinInterval(pr.createdAt, interval)
+
+          return isWithinOrg && validDate
+        })
+
+        const filteredClosedPrs = _.filter(closedPrs.nodes, function(pr) {
+          let isWithinOrg = true
+          if (organization) {
+            const owner = pr && pr.repository && pr.repository.owner ? pr.repository.owner.login : ''
+            isWithinOrg = _.isEqual(owner, organization)
+          }
+          const validDate = isWithinInterval(pr.createdAt, interval)
+
+          return isWithinOrg && validDate
+        })
+
+        console.log('getUserStats filteredOpenIssues size', _.size(filteredOpenIssues))
+        console.log('getUserStats filteredClosedIssues size', _.size(filteredClosedIssues))
+        console.log('getUserStats filteredOpenPrs size', _.size(filteredOpenPrs))
+        console.log('getUserStats filteredClosedPrs size', _.size(filteredClosedPrs))
       }
     } catch (err) {
       if (err && err.response) {
