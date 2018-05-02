@@ -1,0 +1,29 @@
+version: '3'
+services:
+  mon-bot-db:
+    build:
+      context: .
+      dockerfile: Dockerfile.mon-bot-db
+    environment:
+      - NODE_ENV
+      - DB_USERNAME
+      - DB_PASSWORD
+      - DB_PORT
+      - DB_NAME
+      - DB_HOST
+      - SLACK_BOT_TOKEN
+      - OFFSET=0
+      - INTERVAL=300000
+  mon-bot-mobile-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.mon-bot-mobile-api
+    environment:
+      - NODE_ENV
+      - MOBILE_API_BASE_URL
+      - API_BUYER_USERNAME
+      - API_BUYER_PASSWORD
+      - SLACK_BOT_TOKEN
+      - OFFSET=30000
+      - INTERVAL=300000
+

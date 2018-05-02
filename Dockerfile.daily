@@ -1,0 +1,14 @@
+FROM node:carbon
+
+RUN npm i lerna -g --loglevel notice
+
+COPY package.json .
+RUN npm install --loglevel notice
+
+COPY packages/mon-bot-db ./packages/mon-bot-db
+COPY packages/mon-bot-core ./packages/mon-bot-core
+
+COPY lerna.json .
+RUN lerna bootstrap
+
+CMD [ "npm", "--prefix", "packages/mon-bot-db", "start" ]

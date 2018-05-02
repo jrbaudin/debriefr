@@ -1,0 +1,14 @@
+{
+	"scripts": {
+    "precommit": "lint-staged"
+  },
+	"devDependencies": {
+		"lerna": "^2.10.2"
+	},
+	"lint-staged": {
+    "*.{ts,tsx,js,json}": [
+      "prettier --write",
+      "git add"
+    ]
+  }
+}

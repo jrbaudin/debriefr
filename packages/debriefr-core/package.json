@@ -1,0 +1,19 @@
+{
+  "name": "debriefr-core",
+  "version": "1.0.0",
+  "description": "Core functionality for the debriefr project",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "author": "Joel Baudin",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "reports",
+    "slack"
+  ]
+}
