@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import * as _ from 'lodash'
+import * as moment from 'moment'
 import * as program from 'commander'
 import { slack, util, github } from 'debriefr-core'
 import { isWithinInterval } from './validation'
@@ -132,14 +133,14 @@ program
             })
           })
         })
-        console.log('getUserStats commits size', _.size(commits))
+        /* console.log('getUserStats commits size', _.size(commits))
         console.log('getUserStats filteredOpenIssues size', _.size(filteredOpenIssues))
-        console.log('getUserStats filteredClosedIssues size', _.size(filteredClosedIssues))
+        console.log('getUserStats filteredClosedIssues size', _.size(filteredClosedIssues)) */
 
         slack.send({
           token: process.env.SLACK_BOT_TOKEN,
           as_user: true,
-          channel: 'D59B318RW',
+          channel: process.env.SLACK_CHANNEL,
           attachments: [
             {
                 "fallback": `Here's my ${interval} summary for the ${organization} GitHub org. ${_.size(filteredClosedIssues)} closed issues, ${_.size(filteredOpenIssues)} opened issues and ${_.size(commits)} commits.`,
@@ -167,7 +168,8 @@ program
                         "short": true
                     }
                 ],
-                "footer": "Debriefr"
+                "footer": "🤖 Debriefr",
+                "ts": moment().unix()
             }
           ]
         })
