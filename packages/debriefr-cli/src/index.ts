@@ -169,7 +169,7 @@ program
                         "short": true
                     }
                 ],
-                "footer": `Org: *${organization}*`,
+                "footer": organization,
                 "footer_icon": "https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png",
                 "ts": moment().unix()
             }
