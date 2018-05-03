@@ -46,6 +46,9 @@ program
                 }
                 refs(last: 100, refPrefix: "refs/heads/") {
                   nodes {
+                    repository {
+                      name
+                    }
                     target {
                       ... on Commit {
                         history(first: 15) {
@@ -117,6 +120,7 @@ program
           const repoOwner = repo && repo.owner ? repo.owner.login : ''
           const refs = repo && repo.refs ? repo.refs.nodes : []
           _.forEach(refs, ref => {
+            const repoName = ref && ref.repository ? ref.repository.name : null
             const history = ref && ref.target && ref.target.history ? ref.target.history.edges : []
             _.forEach(history, edge => {
               const node = edge ? edge.node : {}
@@ -130,7 +134,10 @@ program
               const validDate = isWithinInterval(node.pushedDate, interval)
 
               if (_.isEqual(loginUsername, username) && isWithinOrg && validDate) {
-                commits.push(node)
+                commits.push({
+                  ...node,
+                  repoName
+                })
               }
             })
           })
@@ -138,6 +145,23 @@ program
         /* console.log('getUserStats commits size', _.size(commits))
         console.log('getUserStats filteredOpenIssues size', _.size(filteredOpenIssues))
         console.log('getUserStats filteredClosedIssues size', _.size(filteredClosedIssues)) */
+
+        const groupedCommits = _.groupBy(commits, "repoName")
+        const contributionList = []
+        _.forEach(groupedCommits, (commits, repoName) => {
+          contributionList.push({
+            key: repoName,
+            noOfCommits: _.size(commits)
+          })
+        })
+        const sortedList = _.orderBy(contributionList, ["noOfCommits"], ["desc"])
+        const top3 = _.take(sortedList, 3)
+        console.log('top3', top3)
+
+        let top3RepoString = ''
+        _.forEach(top3, (repo, index) => {
+          top3RepoString = top3RepoString + `#${index + 1}: *${repo.noOfCommits}* commits in \`${repo.key}\`\n`
+        })
 
         slack.send({
           token: process.env.SLACK_BOT_TOKEN,
@@ -167,6 +191,11 @@ program
                         "title": "Commits",
                         "value": _.size(commits),
                         "short": true
+                    },
+                    {
+                        "title": "Top 3 repositories",
+                        "value": top3RepoString,
+                        "short": false
                     }
                 ],
                 "footer": organization,
