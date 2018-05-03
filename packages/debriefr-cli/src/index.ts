@@ -193,7 +193,7 @@ program
                         "short": true
                     },
                     {
-                        "title": "Top 3 repositories",
+                        "title": "Top repositories",
                         "value": top3RepoString,
                         "short": false
                     }
