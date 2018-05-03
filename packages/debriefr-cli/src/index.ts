@@ -16,56 +16,54 @@ program
   .action(async (username, cmd) => {
     const interval = cmd.interval
     const organization = cmd.organization
-    console.log('user', username)
+    /* console.log('user', username)
     console.log('interval', interval)
-    console.log('organization', organization)
+    console.log('organization', organization) */
     try {
       const getUserStats = `
-        query getDailyUserStats($login: String!) {
+        query getUserStats($login: String!) {
           user(login: $login) {
             name
-            commitComments(first: 100) {
-              nodes {
-                ...commitFields
-              }
-            }
-            closedPrs: pullRequests(first: 100, states: CLOSED) {
-              nodes {
-                ...pullRequestFields
-              }
-            }
-            openPrs: pullRequests(first: 100, states: OPEN) {
-              nodes {
-                ...pullRequestFields
-              }
-            }
-            closedIssues: issues(first: 100, states: CLOSED) {
+            avatarUrl
+            url
+            closedIssues: issues(first: 100, states: CLOSED, orderBy: { field:CREATED_AT, direction:DESC }) {
               nodes {
                 ...issueFields
               }
             }
-            openIssues: issues(first: 100, states: OPEN) {
+            openIssues: issues(first: 100, states: OPEN, orderBy: { field:CREATED_AT, direction:DESC }) {
               nodes {
                 ...issueFields
               }
             }
-          }
-        }
-
-        fragment pullRequestFields on PullRequest {
-          title
-          author {
-            login
-          }
-          repository {
-            name
-            owner {
-              login
+            contributions: repositoriesContributedTo(first: 100, orderBy:{field: PUSHED_AT, direction: DESC}, contributionTypes: COMMIT) {
+              nodes {
+                owner {
+                  login
+                }
+                refs(last: 100, refPrefix: "refs/heads/") {
+                  nodes {
+                    target {
+                      ... on Commit {
+                        history(first: 15) {
+                          edges {
+                            node {
+                              pushedDate
+                              author {
+                                user {
+                                  login
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
-          createdAt
-          closed
-          closedAt
         }
 
         fragment issueFields on Issue {
@@ -74,45 +72,19 @@ program
             login
           }
           repository {
-            name
             owner {
               login
             }
           }
           createdAt
-          closed
           closedAt
-        }
-
-        fragment commitFields on CommitComment {
-          author {
-            login
-          }
-          repository {
-            name
-            owner {
-              login
-            }
-          }
-          createdAt
-          commit {
-            pushedDate
-            authoredDate
-            message
-            messageBody
-            repository {
-              name
-              owner {
-                login
-              }
-            }
-          }
+          authorAssociation
         }`
 
       const data = await github.query(getUserStats, { login: username })
 
       if (data && data.user) {
-        const { name, closedPrs, openPrs, closedIssues, openIssues } = data.user
+        const { name, avatarUrl, url, closedIssues, openIssues, contributions } = data.user
 
         const filteredOpenIssues = _.filter(openIssues.nodes, function(issue) {
           let isWithinOrg = true
@@ -126,42 +98,79 @@ program
         })
 
         const filteredClosedIssues = _.filter(closedIssues.nodes, function(issue) {
+          // console.log('closed issue', issue)
           let isWithinOrg = true
           if (organization) {
             const owner = issue && issue.repository && issue.repository.owner ? issue.repository.owner.login : ''
             isWithinOrg = _.isEqual(owner, organization)
           }
-          const validDate = isWithinInterval(issue.createdAt, interval)
+          const validDate = isWithinInterval(issue.closedAt, interval)
 
           return isWithinOrg && validDate
         })
 
-        const filteredOpenPrs = _.filter(openPrs.nodes, function(pr) {
-          let isWithinOrg = true
-          if (organization) {
-            const owner = pr && pr.repository && pr.repository.owner ? pr.repository.owner.login : ''
-            isWithinOrg = _.isEqual(owner, organization)
-          }
-          const validDate = isWithinInterval(pr.createdAt, interval)
+        const commits = []
+        _.forEach(contributions.nodes, repo => {
+          const repoOwner = repo && repo.owner ? repo.owner.login : ''
+          const refs = repo && repo.refs ? repo.refs.nodes : []
+          _.forEach(refs, ref => {
+            const history = ref && ref.target && ref.target.history ? ref.target.history.edges : []
+            _.forEach(history, edge => {
+              const node = edge ? edge.node : {}
+              const loginUsername = node && node.author && node.author.user ? node.author.user.login : ''
 
-          return isWithinOrg && validDate
+              let isWithinOrg = true
+              if (organization) {
+                isWithinOrg = _.isEqual(repoOwner, organization)
+              }
+
+              const validDate = isWithinInterval(node.pushedDate, interval)
+
+              if (_.isEqual(loginUsername, username) && isWithinOrg && validDate) {
+                commits.push(node)
+              }
+            })
+          })
         })
-
-        const filteredClosedPrs = _.filter(closedPrs.nodes, function(pr) {
-          let isWithinOrg = true
-          if (organization) {
-            const owner = pr && pr.repository && pr.repository.owner ? pr.repository.owner.login : ''
-            isWithinOrg = _.isEqual(owner, organization)
-          }
-          const validDate = isWithinInterval(pr.createdAt, interval)
-
-          return isWithinOrg && validDate
-        })
-
+        console.log('getUserStats commits size', _.size(commits))
         console.log('getUserStats filteredOpenIssues size', _.size(filteredOpenIssues))
         console.log('getUserStats filteredClosedIssues size', _.size(filteredClosedIssues))
-        console.log('getUserStats filteredOpenPrs size', _.size(filteredOpenPrs))
-        console.log('getUserStats filteredClosedPrs size', _.size(filteredClosedPrs))
+
+        slack.send({
+          token: process.env.SLACK_BOT_TOKEN,
+          as_user: true,
+          channel: 'D59B318RW',
+          attachments: [
+            {
+                "fallback": `Here's my ${interval} summary for the ${organization} GitHub org. ${_.size(filteredClosedIssues)} closed issues, ${_.size(filteredOpenIssues)} opened issues and ${_.size(commits)} commits.`,
+                "color": "#F46085",
+                "pretext": `Here's my ${interval} summary for the ${organization} GitHub org`,
+                "author_name": name,
+                "author_link": url,
+                "author_icon": avatarUrl,
+                "title": `github.com/${organization}`,
+                "title_link": `https://github.com/${organization}`,
+                "fields": [
+                    {
+                        "title": "Closed issues",
+                        "value": _.size(filteredClosedIssues),
+                        "short": true
+                    },
+                    {
+                        "title": "Opened issues",
+                        "value": _.size(filteredOpenIssues),
+                        "short": true
+                    },
+                    {
+                        "title": "Commits",
+                        "value": _.size(commits),
+                        "short": true
+                    }
+                ],
+                "footer": "Debriefr"
+            }
+          ]
+        })
       }
     } catch (err) {
       if (err && err.response) {

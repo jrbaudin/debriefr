@@ -13,7 +13,7 @@ export const query = (query: string, variables: object): Promise<any> => {
       console.info(`${logPrefix} Query successfully sent!`)
       return data
     }).catch(err => {
-      console.error(`${logPrefix} Error caught while running postMessage()`)
+      console.error(`${logPrefix} Error caught while querying Github API v4`)
       console.error(err)
       return err
     })
