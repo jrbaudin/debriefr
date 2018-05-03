@@ -14,9 +14,11 @@ program
   .command('user <username>')
   .option('-i --interval <interval>', 'Report interval', /^(daily|weekly|monthly|yearly)$/i, 'daily')
   .option('-o --organization <organization>', 'Filter by organization')
+  .option('-m --message <message>', 'How did your you day go?')
   .action(async (username, cmd) => {
     const interval = cmd.interval
     const organization = cmd.organization
+    const message = cmd.message
     /* console.log('user', username)
     console.log('interval', interval)
     console.log('organization', organization) */
@@ -145,12 +147,11 @@ program
             {
                 "fallback": `Here's my ${interval} summary for the ${organization} GitHub org. ${_.size(filteredClosedIssues)} closed issues, ${_.size(filteredOpenIssues)} opened issues and ${_.size(commits)} commits.`,
                 "color": "#F46085",
-                "pretext": `Here's my ${interval} summary for the ${organization} GitHub org`,
                 "author_name": name,
                 "author_link": url,
                 "author_icon": avatarUrl,
-                "title": `github.com/${organization}`,
-                "title_link": `https://github.com/${organization}`,
+                "title": `${_.upperFirst(interval)} summary`,
+                "text": `${message}`,
                 "fields": [
                     {
                         "title": "Closed issues",
@@ -168,7 +169,8 @@ program
                         "short": true
                     }
                 ],
-                "footer": "🤖 Debriefr",
+                "footer": `Org: *${organization}*`,
+                "footer_icon": "https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png",
                 "ts": moment().unix()
             }
           ]
