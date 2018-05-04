@@ -188,7 +188,7 @@ program
                 "author_link": url,
                 "author_icon": avatarUrl,
                 "title": `${_.upperFirst(interval)} summary`,
-                "text": `${message}`,
+                "text": `${message ? message : "No message was entered so let's assume it was an awesome day."}`,
                 "fields": [
                     {
                         "title": "Closed issues",
