@@ -14,7 +14,6 @@
     "watch": "nodemon src/index.ts",
     "build": "tsc",
     "start": "tsc && node lib/index.js",
-    "start:local": "tsc && node lib/index.js",
     "test": "jest",
     "test:watch": "jest --watch"
   },
