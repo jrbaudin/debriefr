@@ -1,4 +1,7 @@
 {
+  "name": "debriefr",
+  "private": true,
+  "license": "MIT",
 	"scripts": {
     "precommit": "lint-staged"
   },
