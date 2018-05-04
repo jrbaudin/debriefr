@@ -2,10 +2,6 @@
 
 > Debriefr command line.
 
-In addition, various entry point scripts live in the top-level package at `@babel/cli/bin`.
-
-There is a shell-executable utility script, `babel-external-helpers.js`, and the main Babel cli script, `babel.js`.
-
 ## Install
 
 ```sh
