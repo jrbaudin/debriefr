@@ -1,135 +1,229 @@
+#!/usr/bin/env node
+import * as rc from 'rc'
 import * as _ from 'lodash'
-import { slack, logger, util } from 'mon-bot-core'
+import * as moment from 'moment'
+import * as program from 'commander'
+import { slack, util, github } from 'debriefr-core'
+import { isWithinInterval } from './validation'
 import DB from './database'
 
-const dev = process.env.NODE_ENV !== 'production'
-const SLACK_ENV_FLAG = dev ? 'DEV' : 'PROD'
-const LOG_PREFIX = 'db ||'
+const conf = rc('debriefr', {
+  github: {
+    url: "https://api.github.com/graphql"
+  }
+})
 
-const testQuery = `
-  SELECT
-    ca.user_id,
-    ca.company_id,
-    c.name AS company_name,
-    ca.module,
-    ca.level,
-    l.id AS location_id,
-    l.name,
-    l.address,
-    l.zip,
-    l.city,
-    l.country_id,
-    co.name as country_name,
-    l.latitude,
-    l.longitude,
-    t.timezone,
-    cu.code AS currency_code,
-    cu.symbol AS currency_symbol,
-    cu.is_prefix AS currency_is_prefix,
-    l.dvh,
-    l.beta,
-    l.hidden,
-    (NOW() AT TIME ZONE t.timezone) AS today_date
-  FROM company_access ca
-    JOIN companies c ON ca.company_id = c.id
-    LEFT JOIN locations l ON l.id = ca.location_id
-    JOIN currencies cu ON cu.id = l.currency_id
-    JOIN timezones t ON t.id = l.timezone_id
-    JOIN countries co ON co.id = l.country_id
-  WHERE ca.user_id = $id`
+const LOG_PREFIX = 'cli ||'
 
-const variables = {
-  id: 1
+const SLACK_TOKEN = conf && conf.slack && conf.slack.token ? conf.slack.token : null
+const SLACK_CHANNEL = conf && conf.slack && conf.slack.channel ? conf.slack.channel : null
+const GITHUB_API_URL = conf && conf.github && conf.github.url ? conf.github.url : null
+const GITHUB_API_TOKEN = conf && conf.github && conf.github.token ? conf.github.token : null
+
+if (!SLACK_TOKEN || !SLACK_CHANNEL || !GITHUB_API_TOKEN || !GITHUB_API_URL) {
+  console.error(`${LOG_PREFIX} Missing mandatory information.`)
+  process.exit(1)
 }
 
-let okCount: number = 0
-let executionTimes: number[] = []
-
-interface ITestDBResponse {
-  success: boolean,
-  message?: string
-}
-
-const testDBConnectivity = (conn: any, withMock?: any): Promise<ITestDBResponse> => {
-  return new Promise(resolve => {
-    logger.info(`${LOG_PREFIX} Testing DB connection...`)
-    // start execution timer
-    const hrstart = process.hrtime()
-    DB.query(testQuery, {
-      bind: variables,
-      type: DB.QueryTypes.SELECT
-    }).then(result => {
-      // stop execution timer
-      const hrend = process.hrtime(hrstart)
-      logger.info(`${LOG_PREFIX} We got a response with execution time: %ds %dms`, hrend[0], hrend[1]/1000000)
-      // verify response data
-      if (result[0] && result[0].user_id && _.isEqual(result[0].user_id, variables.id)) {
-        const data = result[0]
-        logger.silly(`${LOG_PREFIX} Result: %o`, data)
-        // update state variables
-
-        okCount = okCount + 1
-        executionTimes.push(util.convertDurationToMillis(hrend))
-        // if we've received 5 OKs let's print to Slack
-        if (okCount === 5) {
-          logger.info(`${LOG_PREFIX} 5 OKs > Sending Slack message...`)
-          const average = _.round(_.sum(executionTimes)/_.size(executionTimes), 2)
-          if (average >= 600) {
-            // if the average execution time is equal or above 600 ms we should print to #prod-moniter if prod deployment
-            slack.send({
-              token: process.env.SLACK_BOT_TOKEN,
-              text: `[MonBot] :robot_face: [\`${SLACK_ENV_FLAG}\`] \`Database\` is UP :white_check_mark:\n:warning: Average execution time (of query) is \`${average}ms\``
-            })
-          } else {
-            // otherwise just print status to #prod-log
-            slack.send({
-              token: process.env.SLACK_BOT_TOKEN,
-              text: `[MonBot] :robot_face: [\`${SLACK_ENV_FLAG}\`] \`Database\` is UP :white_check_mark:\nAverage execution time (of query) is \`${average}ms\``,
-              channel: '#prod-log'
-            })
+program
+  .command('user <username>')
+  .option('-i --interval <interval>', 'Report interval', /^(daily|weekly|monthly|yearly)$/i, 'daily')
+  .option('-o --organization <organization>', 'Filter by organization')
+  .option('-m --message <message>', 'How did your you day go?')
+  .option('-c --config <config>', 'Manually override the config')
+  .action(async (username, cmd) => {
+    const interval = cmd.interval
+    const organization = cmd.organization
+    const message = cmd.message
+    try {
+      const getUserStats = `
+        query getUserStats($login: String!) {
+          user(login: $login) {
+            name
+            avatarUrl
+            url
+            closedIssues: issues(first: 100, states: CLOSED, orderBy: { field:CREATED_AT, direction:DESC }) {
+              nodes {
+                ...issueFields
+              }
+            }
+            openIssues: issues(first: 100, states: OPEN, orderBy: { field:CREATED_AT, direction:DESC }) {
+              nodes {
+                ...issueFields
+              }
+            }
+            contributions: repositoriesContributedTo(first: 100, orderBy:{field: PUSHED_AT, direction: DESC}, contributionTypes: COMMIT) {
+              nodes {
+                owner {
+                  login
+                }
+                refs(last: 100, refPrefix: "refs/heads/") {
+                  nodes {
+                    repository {
+                      name
+                    }
+                    target {
+                      ... on Commit {
+                        history(first: 15) {
+                          edges {
+                            node {
+                              pushedDate
+                              author {
+                                user {
+                                  login
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
-
-          // reset state variables
-          okCount = 0
-          executionTimes = []
         }
-        resolve({
-          success: true
+
+        fragment issueFields on Issue {
+          title
+          author {
+            login
+          }
+          repository {
+            owner {
+              login
+            }
+          }
+          createdAt
+          closedAt
+          authorAssociation
+        }`
+
+      const data = await github.query(getUserStats, { login: username }, { url: GITHUB_API_URL, token: GITHUB_API_TOKEN })
+
+      if (data && data.user) {
+        const { name, avatarUrl, url, closedIssues, openIssues, contributions } = data.user
+
+        const filteredOpenIssues = _.filter(openIssues.nodes, function(issue) {
+          let isWithinOrg = true
+          if (organization) {
+            const owner = issue && issue.repository && issue.repository.owner ? issue.repository.owner.login : ''
+            isWithinOrg = _.isEqual(owner, organization)
+          }
+          const validDate = isWithinInterval(issue.createdAt, interval)
+
+          return isWithinOrg && validDate
         })
-      } else {
-        logger.debug(`${LOG_PREFIX} Query didn't return the expected data.`)
+
+        const filteredClosedIssues = _.filter(closedIssues.nodes, function(issue) {
+          // console.log('closed issue', issue)
+          let isWithinOrg = true
+          if (organization) {
+            const owner = issue && issue.repository && issue.repository.owner ? issue.repository.owner.login : ''
+            isWithinOrg = _.isEqual(owner, organization)
+          }
+          const validDate = isWithinInterval(issue.closedAt, interval)
+
+          return isWithinOrg && validDate
+        })
+
+        const commits = []
+        _.forEach(contributions.nodes, repo => {
+          const repoOwner = repo && repo.owner ? repo.owner.login : ''
+          const refs = repo && repo.refs ? repo.refs.nodes : []
+          _.forEach(refs, ref => {
+            const repoName = ref && ref.repository ? ref.repository.name : null
+            const history = ref && ref.target && ref.target.history ? ref.target.history.edges : []
+            _.forEach(history, edge => {
+              const node = edge ? edge.node : {}
+              const loginUsername = node && node.author && node.author.user ? node.author.user.login : ''
+
+              let isWithinOrg = true
+              if (organization) {
+                isWithinOrg = _.isEqual(repoOwner, organization)
+              }
+
+              const validDate = isWithinInterval(node.pushedDate, interval)
+
+              if (_.isEqual(loginUsername, username) && isWithinOrg && validDate) {
+                commits.push({
+                  ...node,
+                  repoName
+                })
+              }
+            })
+          })
+        })
+        /* console.log('getUserStats commits size', _.size(commits))
+        console.log('getUserStats filteredOpenIssues size', _.size(filteredOpenIssues))
+        console.log('getUserStats filteredClosedIssues size', _.size(filteredClosedIssues)) */
+
+        const groupedCommits = _.groupBy(commits, "repoName")
+        const contributionList = []
+        _.forEach(groupedCommits, (commits, repoName) => {
+          contributionList.push({
+            key: repoName,
+            noOfCommits: _.size(commits)
+          })
+        })
+        const sortedList = _.orderBy(contributionList, ["noOfCommits"], ["desc"])
+        const top3 = _.take(sortedList, 3)
+        // console.log('top3', top3)
+
+        let top3RepoString = ''
+        _.forEach(top3, (repo, index) => {
+          top3RepoString = top3RepoString + `#${index + 1}: *${repo.noOfCommits}* commits in \`${repo.key}\`\n`
+        })
+
         slack.send({
-          token: process.env.SLACK_BOT_TOKEN,
-          text: `[MonBot] :robot_face: @prod [\`${SLACK_ENV_FLAG}\`] :rotating_light: Test Query didn't return the expected data :warning:`
-        })
-        resolve({
-          success: true,
-          message: 'NO_SUCH_USER'
+          token: SLACK_TOKEN,
+          as_user: true,
+          channel: SLACK_CHANNEL,
+          attachments: [
+            {
+                "fallback": `Here's my ${interval} summary for the ${organization} GitHub org. ${_.size(filteredClosedIssues)} closed issues, ${_.size(filteredOpenIssues)} opened issues and ${_.size(commits)} commits.`,
+                "color": "#F46085",
+                "author_name": name,
+                "author_link": url,
+                "author_icon": avatarUrl,
+                "title": `${_.upperFirst(interval)} summary`,
+                "text": `${message ? message : "No message was entered so let's assume it was an awesome day."}`,
+                "fields": [
+                    {
+                        "title": "Closed issues",
+                        "value": _.size(filteredClosedIssues),
+                        "short": true
+                    },
+                    {
+                        "title": "Opened issues",
+                        "value": _.size(filteredOpenIssues),
+                        "short": true
+                    },
+                    {
+                        "title": "Commits",
+                        "value": _.size(commits),
+                        "short": true
+                    },
+                    {
+                        "title": "Top repositories",
+                        "value": top3RepoString,
+                        "short": false
+                    }
+                ],
+                "footer": organization,
+                "footer_icon": "https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png",
+                "ts": moment().unix()
+            }
+          ]
         })
       }
-    }).catch(err => {
-      const message = err.message
-      logger.error(`${LOG_PREFIX} Error caught! message=${message}`)
-      logger.error(`${LOG_PREFIX} error: %o`, err)
-      if (
-        _.includes(message, 'ECONNREFUSED') ||
-        _.includes(message, 'ENOTFOUND')
-      ) {
-        logger.debug(`${LOG_PREFIX} Sending Slack message...`)
-        slack.send({
-          token: process.env.SLACK_BOT_TOKEN,
-          text: `[MonBot] :robot_face: @prod [\`${SLACK_ENV_FLAG}\`] :rotating_light: :octagonal_sign: Can't connect to the Karma Database :warning:\nError: ${message}`
-        })
+    } catch (err) {
+      if (err && err.response) {
+        console.error(err.response.errors) // GraphQL response errors
+        console.error(err.response.data) // Response data if available
       }
-      resolve({
-        success: false,
-        message: 'ERROR_CAUGHT'
-      })
-    })
+    }
   })
-}
-// every 5 min
-setTimeout(() => {
-  const interval = setInterval(testDBConnectivity, process.env.INTERVAL)
-  // clearInterval(this)
-}, process.env.OFFSET)
+
+program.parse(process.argv)

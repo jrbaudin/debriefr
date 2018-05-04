@@ -5,20 +5,21 @@ const dev = process.env.NODE_ENV !== 'production'
 const logPrefix = 'slack ||'
 
 export interface ISlackMessage {
-  text: String
-  channel?: String
-  token?: String
-  parse?: String
-  as_user?: String
+  text?: string
+  channel?: string
+  token?: string
+  parse?: string
+  as_user?: boolean
+  attachments?: object[]
 }
 
 export const send = (message: ISlackMessage): Promise<any> => {
   const defaults: ISlackMessage = {
-    token: process.env.SLACK_BOT_TOKEN,
+    token: process.env.SLACK_TOKEN,
     parse: 'full',
-    as_user: 'karma',
-    channel: dev ? '#prod-log' : '#prod-monitor',
-    text: 'MonBot Slack Default Text',
+    as_user: true,
+    channel: '#prod-log',
+    text: '',
   }
   const readyMessage = _.merge(defaults, message) as Chat.PostMessage.Params
   return slack.chat

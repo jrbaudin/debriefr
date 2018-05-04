@@ -1,6 +1,6 @@
 {
   "name": "debriefr-core",
-  "version": "1.0.0",
+  "version": "0.0.1-beta.0",
   "description": "Core functionality for the debriefr project",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
