@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "commander": "^2.15.1",
-    "debriefr-core": "^0.0.1-beta.0",
+    "debriefr-core": "^0.0.1-beta.1",
     "lodash": "^4.17.5",
     "moment": "^2.22.1",
     "rc": "^1.2.7"
@@ -38,5 +38,5 @@
     "ts-node": "^4.1.0",
     "typescript": "^2.8.1"
   },
-  "version": "0.0.1-beta.0"
+  "version": "0.0.1-beta.1"
 }
