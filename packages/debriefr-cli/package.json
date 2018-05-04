@@ -3,8 +3,9 @@
   "description": "Run the magic debriefr from the command line",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
-  "author": "Joel Baudin",
+  "author": "Joel Baudin <joel.baudin88@gmail.com>",
   "license": "MIT",
+  "repository": "https://github.com/jrbaudin/debriefr/tree/master/packages/debriefr-cli",
   "keywords": [
     "github",
     "reports",

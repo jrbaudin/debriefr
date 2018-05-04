@@ -4,18 +4,19 @@
   "description": "Core functionality for the debriefr project",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
-  "scripts": {
-    "build": "tsc",
-    "test": "jest",
-    "test:watch": "jest --watch"
-  },
-  "author": "Joel Baudin",
+  "author": "Joel Baudin <joel.baudin88@gmail.com>",
   "license": "MIT",
+  "repository": "https://github.com/jrbaudin/debriefr/tree/master/packages/debriefr-core",
   "keywords": [
     "github",
     "reports",
     "slack"
   ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
   "devDependencies": {
     "@types/jest": "^22.2.3",
     "@types/lodash": "^4.14.108",
