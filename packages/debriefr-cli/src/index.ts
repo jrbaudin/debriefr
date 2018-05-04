@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import * as rc from 'rc'
 import * as _ from 'lodash'
 import * as moment from 'moment'
 import * as program from 'commander'
@@ -6,22 +7,34 @@ import { slack, util, github } from 'debriefr-core'
 import { isWithinInterval } from './validation'
 import DB from './database'
 
-const dev = process.env.NODE_ENV !== 'production'
-const SLACK_ENV_FLAG = dev ? 'DEV' : 'PROD'
+const conf = rc('debriefr', {
+  github: {
+    url: "https://api.github.com/graphql"
+  }
+})
+
 const LOG_PREFIX = 'cli ||'
+
+const SLACK_TOKEN = conf && conf.slack && conf.slack.token ? conf.slack.token : null
+const SLACK_CHANNEL = conf && conf.slack && conf.slack.channel ? conf.slack.channel : null
+const GITHUB_API_URL = conf && conf.github && conf.github.url ? conf.github.url : null
+const GITHUB_API_TOKEN = conf && conf.github && conf.github.token ? conf.github.token : null
+
+if (!SLACK_TOKEN || !SLACK_CHANNEL || !GITHUB_API_TOKEN || !GITHUB_API_URL) {
+  console.error(`${LOG_PREFIX} Missing mandatory information.`)
+  process.exit(1)
+}
 
 program
   .command('user <username>')
   .option('-i --interval <interval>', 'Report interval', /^(daily|weekly|monthly|yearly)$/i, 'daily')
   .option('-o --organization <organization>', 'Filter by organization')
   .option('-m --message <message>', 'How did your you day go?')
+  .option('-c --config <config>', 'Manually override the config')
   .action(async (username, cmd) => {
     const interval = cmd.interval
     const organization = cmd.organization
     const message = cmd.message
-    /* console.log('user', username)
-    console.log('interval', interval)
-    console.log('organization', organization) */
     try {
       const getUserStats = `
         query getUserStats($login: String!) {
@@ -87,7 +100,7 @@ program
           authorAssociation
         }`
 
-      const data = await github.query(getUserStats, { login: username })
+      const data = await github.query(getUserStats, { login: username }, { url: GITHUB_API_URL, token: GITHUB_API_TOKEN })
 
       if (data && data.user) {
         const { name, avatarUrl, url, closedIssues, openIssues, contributions } = data.user
@@ -156,7 +169,7 @@ program
         })
         const sortedList = _.orderBy(contributionList, ["noOfCommits"], ["desc"])
         const top3 = _.take(sortedList, 3)
-        console.log('top3', top3)
+        // console.log('top3', top3)
 
         let top3RepoString = ''
         _.forEach(top3, (repo, index) => {
@@ -164,9 +177,9 @@ program
         })
 
         slack.send({
-          token: process.env.SLACK_BOT_TOKEN,
+          token: SLACK_TOKEN,
           as_user: true,
-          channel: process.env.SLACK_CHANNEL,
+          channel: SLACK_CHANNEL,
           attachments: [
             {
                 "fallback": `Here's my ${interval} summary for the ${organization} GitHub org. ${_.size(filteredClosedIssues)} closed issues, ${_.size(filteredOpenIssues)} opened issues and ${_.size(commits)} commits.`,
@@ -207,8 +220,8 @@ program
       }
     } catch (err) {
       if (err && err.response) {
-        console.log(err.response.errors) // GraphQL response errors
-        console.log(err.response.data) // Response data if available
+        console.error(err.response.errors) // GraphQL response errors
+        console.error(err.response.data) // Response data if available
       }
     }
   })

@@ -1,0 +1,10 @@
+{
+  "slack": {
+    "token": "replace_with_something_real",
+    "channel": "#general"
+  },
+  "github": {
+    "token": "replace_with_something_real",
+    "url": "https://api.github.com/graphql"
+  }
+}

@@ -15,7 +15,7 @@ export interface ISlackMessage {
 
 export const send = (message: ISlackMessage): Promise<any> => {
   const defaults: ISlackMessage = {
-    token: process.env.SLACK_BOT_TOKEN,
+    token: process.env.SLACK_TOKEN,
     parse: 'full',
     as_user: true,
     channel: '#prod-log',
