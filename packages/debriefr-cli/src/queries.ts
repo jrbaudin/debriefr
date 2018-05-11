@@ -3,15 +3,17 @@ query organizationStats($login: String!) {
   organization(login: $login) {
     name
     avatarUrl
+    url
     repositories(first: 100, orderBy: {field: PUSHED_AT, direction: DESC}) {
       edges {
         node {
           name
           pushedAt
-          issues (first: 100, states: CLOSED, orderBy: {field:CREATED_AT, direction:DESC}) {
+          issues (first: 100, states: CLOSED, orderBy: {field: UPDATED_AT, direction: DESC}) {
             edges {
             	node {
                 createdAt
+                updatedAt
                 closedAt
                 author {
                   login
@@ -32,6 +34,7 @@ query organizationStats($login: String!) {
   organization(login: $login) {
     name
     avatarUrl
+    url
     repositories(first: 100, orderBy: {field: PUSHED_AT, direction: DESC}) {
       edges {
         node {
@@ -71,6 +74,7 @@ query organizationStats($login: String!) {
   organization(login: $login) {
     name
     avatarUrl
+    url
     repositories(first: 100, orderBy: {field: PUSHED_AT, direction: DESC}) {
       edges {
         node {
@@ -82,6 +86,7 @@ query organizationStats($login: String!) {
                 headRefName
                 baseRefName
                 closedAt
+                updatedAt
                 mergedAt
                 mergedBy {
                   login
